@@ -33,6 +33,7 @@ exports.create = function (api) {
       type: 'post',
       root: Proxy(id),
       branch: Proxy(id),
+      defaultBranch: Proxy(id),
       reply: Proxy(undefined),
       channel: Value(undefined),
       recps: Value(undefined)
@@ -44,7 +45,8 @@ exports.create = function (api) {
       shrink: false,
       participants,
       hooks: [
-        AnchorHook('reply', anchor, (el) => el.focus())
+        AnchorHook('reply', anchor, (el) => el.focus()),
+        AnchorHook('quote', anchor, (el) => el.addQuote(meta))
       ],
       placeholder: when(meta.recps, i18n('Write a private reply'), i18n('Write a public reply'))
     })
@@ -95,6 +97,8 @@ exports.create = function (api) {
 
       // if root thread, reply to last post
       meta.branch.set(isReply ? thread.branchId : thread.lastId)
+      // but keep reference to the original branch for quoting
+      meta.defaultBranch.set(id)
 
       participants.set(computed(thread.messages, messages => {
         return messages.map(msg => msg && msg.value && msg.value.author)

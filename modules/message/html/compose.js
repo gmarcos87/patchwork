@@ -18,7 +18,8 @@ exports.needs = nest({
   'message.async.publish': 'first',
   'emoji.sync.names': 'first',
   'emoji.sync.url': 'first',
-  'intl.sync.i18n': 'first'
+  'intl.sync.i18n': 'first',
+  'sbot.async.get': 'first'
 })
 
 exports.gives = nest('message.html.compose')
@@ -137,6 +138,25 @@ exports.create = function (api) {
     composer.setText = function (value) {
       textArea.value = value
       hasContent.set(!!textArea.value)
+    }
+
+    composer.addQuote = function (value) {
+      api.sbot.async.get(resolve(value.defaultBranch), (err, data) => {
+        if (err) {
+          console.log('Error getting an object from sbot', err)
+          return;
+        }
+        try {
+          if (typeof data.content.text === 'string') {
+            var text = data.content.text
+            textArea.value = '> ' + text.replace(/\r\n|\r|\n/g,'\n> ') + '\r\n\n'
+            hasContent.set(!!textArea.value)
+            composer.focus()
+          }
+        } catch(err) {
+          // object not have text or content
+        }
+      });
     }
 
     addSuggest(textArea, (inputText, cb) => {
