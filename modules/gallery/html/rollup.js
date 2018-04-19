@@ -176,7 +176,7 @@ exports.create = function (api) {
         return result
       })
 
-      return h('div',{},[renderedBlobs])
+      return h('div.MessageGallery',[renderedBlobs])
     }
 
   })
@@ -280,9 +280,7 @@ function last (array) {
 function haveBlobs (message) {
   try {
     if(message.value.content && message.value.content.mentions) {
-        return (message.value.content.mentions
-          .filter(mention => ref.isBlobId(mention.link))
-          .length > 0)
+        return (getBlobs(message).length > 0)
     }
     return false
   }
@@ -293,5 +291,8 @@ function haveBlobs (message) {
 
 function getBlobs(message) {
     return message.value.content.mentions
-    .filter(mention => ref.isBlobId(mention.link))
+      .filter(mention => ref.isBlobId(mention.link))
+      .filter(mention => mention.emoji !== true )
+      .filter(mention => typeof mention.type !== 'undefined')
+      .filter(mention => mention.type.indexOf('image') !== -1 )
 }

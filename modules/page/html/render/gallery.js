@@ -42,3 +42,18 @@ exports.create = function (api) {
     return result
   }
 }
+
+function haveBlobs (message) {
+  try {
+    if(message.value.content && message.value.content.mentions) {
+        return (message.value.content.mentions
+          .filter(mention => ref.isBlobId(mention.link))
+          .filter(mention => mention.emoji !== true )
+          .length > 0)
+    }
+    return false
+  }
+  catch(e) {
+    return false
+  }
+}

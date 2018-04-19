@@ -14,10 +14,9 @@ exports.needs = nest({
   'message.html': {
     decorate: 'reduce',
     layout: 'first',
-    action: 'first',
     link: 'first',
     meta: 'map',
-    action: 'map',
+    action: 'first',
     timestamp: 'first',
     backlinks: 'first'
   },
@@ -47,7 +46,12 @@ exports.create = function (api) {
            h('a', {href: msg.parent.key},
             h('img', {src: api.blob.sync.url(msg.link), style: {'width':'100%'}})
            )
-          )
+          ),
+          h('footer', [
+            h('div.actions', [
+              api.message.html.action({key: msg.link, value: { content: { channel: msg.parent.value.content.channel || undefined }}})
+            ])
+          ])
         ]
       );
     }
@@ -71,9 +75,7 @@ exports.create = function (api) {
           ])
         ])
       ]),
-      h('div.meta', [
-        api.message.html.meta(msg)
-      ])
+      //
     ])
   }
 
