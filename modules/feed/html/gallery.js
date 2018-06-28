@@ -191,7 +191,6 @@ exports.create = function (api) {
             let mentions = getBlobs(msg)
             let result = mentions.map(mention => {
               let item = clone(msg);
-              console.log('item', item)
               item.value.content.mentions = [clone(mention)];
               item.value.content.type = 'galleryItem';
               return item;
@@ -292,6 +291,6 @@ function getBlobs(msg) {
     }
     return [];
   } catch(e) {
-    console.log(e, msg, msg.value.content.mentions)
+    console.log('GALLERY FEED', e, msg, msg.value.content.mentions)
   }
 }
