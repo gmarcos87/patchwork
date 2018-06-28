@@ -1,82 +1,103 @@
 var nest = require('depnest')
+var extend = require('xtend')
+var pull = require('pull-stream')
 var ref = require('ssb-ref')
-var { h, Dict, Value, watch, throttle, computed, map, onceTrue } = require('mutant')
+var { h, send, when, computed, map, onceTrue } = require('mutant')
 
 exports.needs = nest({
-  'sbot.obs.connection': 'first',
-  'intl.sync.i18n': 'first',
-  'blob.sync.url': 'first'
+  sbot: {
+    obs: {
+      connectedPeers: 'first',
+      localPeers: 'first',
+      connection: 'first'
+    }
+  },
+  'sbot.pull.stream': 'first',
+  'feed.pull.public': 'first',
+  'feed.pull.withReplies': 'first',
+  'feed.pull.type': 'first',
+  'about.html.image': 'first',
+  'about.obs.name': 'first',
+  'invite.sheet': 'first',
+
+  'message.html.compose': 'first',
+  'message.async.publish': 'first',
+  'message.sync.root': 'first',
+  'progress.html.peer': 'first',
+
+  'feed.html.followWarning': 'first',
+  'feed.html.followerWarning': 'first',
+  'feed.html.gallery': 'first',
+  'profile.obs.recentlyUpdated': 'first',
+  'profile.obs.contact': 'first',
+  'contact.obs.following': 'first',
+  'contact.obs.blocking': 'first',
+  'channel.obs': {
+    subscribed: 'first',
+    recent: 'first'
+  },
+  'channel.sync.normalize': 'first',
+  'keys.sync.id': 'first',
+  'settings.obs.get': 'first',
+  'intl.sync.i18n': 'first'
 })
 
-exports.gives = nest('page.html.render')
+exports.gives = nest({
+  'page.html.render': true
+})
 
 exports.create = function (api) {
-  return nest('page.html.render', function channel (path) {
-    if (path !== '/gallery') return
-    const query = Value('')
-    const results = Dict({})
+  const i18n = api.intl.sync.i18n
+  return nest('page.html.render', page)
 
-    watch(throttle(query, 300), q => {
-      if (q && q.length < 3) return
-      onceTrue(api.sbot.obs.connection, sbot => {
-        sbot.meme.search(q, (err, data) => {
-          if (err) return console.error(err)
-          results.set(data)
-        })
-      })
+  function page (path) {
+    if (path !== '/gallery') return // "/" is a sigil for "page"
+
+    var id = api.keys.sync.id()
+
+    var lastMessage = null
+
+    var getStream = (opts) => {
+      if (!opts.lt) {
+        // HACK: reset the isReplacementMessage check
+        lastMessage = null
+      }
+      if (opts.lt != null && !opts.lt.marker) {
+        // if an lt has been specified that is not a marker, assume stream is finished
+        return pull.empty()
+      } else {
+        return api.feed.pull.type('post');
+      }
+    }
+
+    var filters = api.settings.obs.get('filters')
+    return api.feed.html.gallery(api.feed.pull.type('post'), {
+      prefiltered: false, // we've already filtered out the roots we don't want to include
+      rootFilter: function (msg) {
+        if (getBlobs(msg).length === 0) return false;
+        return true;
+      },
+      bumpFilter: function (msg) {
+        // this needs to match the logic in sbot/roots so that we display the
+        // correct bump explainations
+        if (getBlobs(msg).length === 0) return false;
+        return true;
+      },
+      compactFilter: function (msg, root) {
+        return false
+      }
     })
+  }
+}
 
-    /*
-    var prepend = [
-      h('input', {
-        'placeholder': 'search image by name',
-        'ev-input': ev => query.set(ev.target.value)
-      })
-    ]
+function getBlobs(msg) {
 
-    if (path !== '/gallery') return
-
-    const i18n = api.intl.sync.i18n
-
-    var view = api.feed.html.rollup(api.feed.pull.public, {
-      prepend: prepend,
-      bumpFilter: (msg) => msg.value.content.type !== 'vote'
-    })
-
-    return view
-    */
-
-   return h('Scroller', { style: { overflow: 'auto' } }, [
-      h('div.wrapper', [
-        h('div.wrapper', [
-          h('input', {
-            'style': {
-              'margin': '20px 0',
-              'width': '100%',
-              'border':'1px solid #ccc',
-              'border-radius': '3px',
-              'padding': '8px'
-            },
-            'placeholder': 'search image by name',
-            'ev-input': ev => query.set(ev.target.value)
-          }),
-          h('section.results', computed([results, query], (results, query) => {
-            if (!Object.keys(results).length && query.length >= 3) return h('p', '0 results')
-            return Object.keys(results).map(blob => {
-              return h('div', [
-                h('img', {
-                  style: {
-                    'width':'100%',
-                    'border':'10px solid #fff',
-                    'margin':'0 0 15px'
-                  },
-                  src: api.blob.sync.url(blob)
-                })
-              ])
-            })
-          }))
-        ])
-      ])
-    ]);
-  })
+  try {
+    if(msg.value && msg.value.content && typeof msg.value.content.mentions != 'undefined' && typeof msg.value.content.mentions.length !== 'undefined') {
+      return msg.value.content.mentions.filter(mention => ref.isBlobId(mention.link))
+    }
+    return [];
+  } catch(e) {
+    console.log('GALLERY',e, msg)
+  }
 }
